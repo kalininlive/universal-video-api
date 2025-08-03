@@ -1,28 +1,34 @@
 import express from "express";
 import fetch from "node-fetch";
-import ytdl from "ytdl-core";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Адрес твоего локального yt-dlp API (можно переопределить через ENV)
+const YTDLP_SERVICE_BASE = process.env.YTDLP_SERVICE_URL || "http://90.156.253.98:5001/extract";
+
 // TikTok (через публичный no-watermark API)
 app.get("/api/tiktok", async (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).json({ error: "URL is required" });
+
   try {
-    const url = req.query.url;
-    if (!url) return res.status(400).json({ error: "URL is required" });
-
     const apiUrl = `https://www.tikwm.com/api/?url=${encodeURIComponent(url)}`;
-    const response = await fetch(apiUrl);
-    const data = await response.json();
+    const r = await fetch(apiUrl);
+    if (!r.ok) {
+      const text = await r.text();
+      return res.status(r.status).json({ error: "TikTok backend error", details: text });
+    }
+    const data = await r.json();
 
-    if (data.data && data.data.play) {
+    if (data?.data?.play) {
       return res.json({
         status: "ok",
-        video: data.data.play, // прямая ссылка на mp4
-        music: data.data.music
+        video: data.data.play,
+        music: data.data.music || null
       });
     } else {
-      return res.status(500).json({ error: "Invalid response from TikTok API" });
+      return res.status(502).json({ error: "Unexpected TikTok API response", raw: data });
     }
   } catch (err) {
     console.error("TikTok error:", err);
@@ -30,83 +36,39 @@ app.get("/api/tiktok", async (req, res) => {
   }
 });
 
-// Instagram
-app.get("/api/instagram", async (req, res) => {
-  try {
-    const url = req.query.url;
-    if (!url) return res.status(400).json({ error: "URL is required" });
-
-    // Заглушка: пока возвращаем просто сам URL
-    return res.json({
-      status: "ok",
-      message: "Instagram downloader пока в разработке",
-      receivedUrl: url
-    });
-  } catch (err) {
-    console.error("Instagram error:", err);
-    return res.status(500).json({ error: err.message });
-  }
+// Instagram заглушка
+app.get("/api/instagram", (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).json({ error: "URL is required" });
+  return res.json({
+    status: "ok",
+    message: "Instagram downloader пока в разработке",
+    receivedUrl: url
+  });
 });
 
-import fs from "fs";
-import configData from "./config.json" assert { type: "json" };
-
-// YouTube Shorts через Invidious с fallback по инстансам
+// YouTube через твой локальный yt-dlp API
 app.get("/api/youtube", async (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).json({ error: "URL is required" });
+
   try {
-    const instances = configData.invidious_instances;
-    const url = req.query.url;
-    if (!url) return res.status(400).json({ error: "URL is required" });
+    const proxyUrl = `${YTDLP_SERVICE_BASE}?url=${encodeURIComponent(url)}`;
+    const r = await fetch(proxyUrl);
+    const data = await r.json();
 
-    const match = url.match(/(?:watch\?v=|\/shorts\/)([A-Za-z0-9_-]+)/);
-    if (!match) return res.status(400).json({ error: "Invalid YouTube link" });
-
-    const videoId = match[1];
-    let lastError = null;
-
-    for (const instance of instances) {
-      try {
-        const apiUrl = `${instance}/api/v1/videos/${videoId}`;
-        const r = await fetch(apiUrl);
-        if (!r.ok) {
-          lastError = `Instance ${instance} returned status ${r.status}`;
-          continue; // пробуем следующий
-        }
-
-        const json = await r.json();
-        const { title, formatStreams } = json;
-        if (!formatStreams || !Array.isArray(formatStreams)) {
-          lastError = `No formatStreams from ${instance}`;
-          continue;
-        }
-
-        const fmt = formatStreams.find(f => f.url && f.container === "mp4");
-        if (!fmt) {
-          lastError = `No mp4 stream on ${instance}`;
-          continue;
-        }
-
-        // Успешно нашли
-        return res.json({
-          status: "ok",
-          title,
-          video: fmt.url,
-          quality: fmt.qualityLabel || fmt.quality || null,
-          mime: fmt.container
-        });
-      } catch (e) {
-        lastError = `Error on ${instance}: ${e.message}`;
-        // идём к следующему
-      }
+    if (!r.ok) {
+      return res.status(r.status).json({ error: data.error || "yt-dlp service error" });
     }
 
-    // Если дошли до конца и ничего не отработало
-    return res.status(410).json({
-      error: "No available format from any Invidious instance",
-      details: lastError
+    return res.json({
+      status: data.status || "ok",
+      title: data.title,
+      video: data.video,
+      audio: data.audio
     });
   } catch (err) {
-    console.error("YouTube error:", err);
+    console.error("YouTube proxy error:", err);
     return res.status(500).json({ error: err.message });
   }
 });
@@ -116,4 +78,6 @@ app.get("/", (req, res) => {
   res.send("✅ Universal Video API is running!");
 });
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
