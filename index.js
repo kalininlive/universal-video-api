@@ -4,7 +4,7 @@ import fetch from "node-fetch";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Адрес твоего локального yt-dlp API (можно переопределить через ENV)
+// Конфиг: куда проксировать yt-dlp (можно переопределить через ENV)
 const YTDLP_SERVICE_BASE = process.env.YTDLP_SERVICE_URL || "http://90.156.253.98:5001/extract";
 
 // TikTok (через публичный no-watermark API)
@@ -36,7 +36,7 @@ app.get("/api/tiktok", async (req, res) => {
   }
 });
 
-// Instagram заглушка
+// Instagram заглушка (добавим позже реальную реализацию)
 app.get("/api/instagram", (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).json({ error: "URL is required" });
@@ -47,18 +47,36 @@ app.get("/api/instagram", (req, res) => {
   });
 });
 
-// YouTube через твой локальный yt-dlp API
+// YouTube через твой локальный yt-dlp API с дебагом
 app.get("/api/youtube", async (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).json({ error: "URL is required" });
 
   try {
-    const proxyUrl = `${process.env.YTDLP_SERVICE_URL || "http://90.156.253.98:5001/extract"}?url=${encodeURIComponent(url)}`;
+    const proxyUrl = `${YTDLP_SERVICE_BASE}?url=${encodeURIComponent(url)}`;
+    console.log("Proxying to yt-dlp:", proxyUrl);
+
     const r = await fetch(proxyUrl);
-    const data = await r.json();
+    const text = await r.text();
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error("yt-dlp returned non-JSON:", text);
+      return res.status(502).json({ error: "Invalid JSON from yt-dlp", raw: text });
+    }
 
     if (!r.ok) {
-      return res.status(r.status).json({ error: data.error || "yt-dlp service error" });
+      console.error("yt-dlp responded error:", r.status, data);
+      return res.status(r.status).json({ error: data.error || "yt-dlp service error", details: data });
+    }
+
+    if (!data.video && !data.audio) {
+      return res.status(410).json({
+        error: "No video/audio URL returned from yt-dlp",
+        debug: data
+      });
     }
 
     return res.json({
@@ -73,7 +91,7 @@ app.get("/api/youtube", async (req, res) => {
   }
 });
 
-// Проверочный маршрут
+// Здоровый чек
 app.get("/", (req, res) => {
   res.send("✅ Universal Video API is running!");
 });
