@@ -28,16 +28,24 @@ app.get("/api/tiktok", async (req, res) => {
   }
 });
 
-// Instagram
+// Instagram Reels (через RapidAPI-публичный эндпоинт)
 app.get("/api/instagram", async (req, res) => {
   try {
     const url = req.query.url;
     if (!url) return res.status(400).json({ error: "URL is required" });
 
-    const result = await igdl.getInfo(url);
+    const apiUrl = `https://instagram-media-downloader.p.rapidapi.com/rapid/post.php?url=${encodeURIComponent(url)}`;
+    const response = await fetch(apiUrl, {
+      headers: {
+        "X-RapidAPI-Host": "instagram-media-downloader.p.rapidapi.com",
+        "X-RapidAPI-Key": "demo" // временно ставим тестовый ключ
+      }
+    });
+    const data = await response.json();
+
     return res.json({
       status: "ok",
-      video: result.url_list[0]
+      video: data.url
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
