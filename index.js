@@ -36,15 +36,53 @@ app.get("/api/tiktok", async (req, res) => {
   }
 });
 
-// Instagram заглушка (добавим позже реальную реализацию)
-app.get("/api/instagram", (req, res) => {
+// Instagram через локальный yt-dlp-сервис
+app.get("/api/instagram", async (req, res) => {
   const url = req.query.url;
   if (!url) return res.status(400).json({ error: "URL is required" });
-  return res.json({
-    status: "ok",
-    message: "Instagram downloader пока в разработке",
-    receivedUrl: url
-  });
+
+  try {
+    // Проксируем к yt-dlp API. Если позже добавишь защиту ключом, подставляй заголовок X-API-Key.
+    const proxyBase = process.env.YTDLP_SERVICE_URL || "http://90.156.253.98:5001/extract";
+    const proxyUrl = `${proxyBase}?url=${encodeURIComponent(url)}`;
+
+    const r = await fetch(proxyUrl, {
+      headers: {
+        // Инстаграм иногда требует юзер-агент, но yt-dlp внутренне этим занимается.
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+      }
+    });
+    const text = await r.text();
+
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error("yt-dlp returned non-JSON for Instagram:", text);
+      return res.status(502).json({ error: "Invalid JSON from yt-dlp", raw: text });
+    }
+
+    if (!r.ok) {
+      return res.status(r.status).json({ error: data.error || "yt-dlp Instagram error", details: data });
+    }
+
+    if (!data.video && !data.audio) {
+      return res.status(410).json({
+        error: "No video/audio URL returned from yt-dlp for Instagram",
+        debug: data
+      });
+    }
+
+    return res.json({
+      status: data.status || "ok",
+      title: data.title,
+      video: data.video,
+      audio: data.audio
+    });
+  } catch (err) {
+    console.error("Instagram proxy error:", err);
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // YouTube через твой локальный yt-dlp API с дебагом
