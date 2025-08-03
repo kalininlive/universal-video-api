@@ -48,7 +48,7 @@ app.get("/api/instagram", async (req, res) => {
   }
 });
 
-// YouTube Shorts (устойчивый вариант)
+// YouTube Shorts (выбираем первый доступный формат)
 app.get("/api/youtube", async (req, res) => {
   try {
     const url = req.query.url;
@@ -59,20 +59,19 @@ app.get("/api/youtube", async (req, res) => {
 
     const info = await ytdl.getInfo(url);
 
-    // фильтруем форматы с видео и аудио
-    const format = ytdl.chooseFormat(info.formats, {
-      quality: "highest",
-      filter: "audioandvideo"
-    });
+    // ищем первый рабочий формат с видео и аудио
+    const format = info.formats.find(f => f.hasVideo && f.hasAudio && f.url);
 
-    if (!format || !format.url) {
-      return res.status(410).json({ error: "Video not available in desired format" });
+    if (!format) {
+      return res.status(410).json({ error: "No available format found" });
     }
 
     return res.json({
       status: "ok",
       title: info.videoDetails.title,
-      video: format.url
+      video: format.url,
+      quality: format.qualityLabel,
+      mime: format.mimeType
     });
   } catch (err) {
     console.error("YouTube error:", err);
