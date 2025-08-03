@@ -1,8 +1,6 @@
 import express from "express";
 import fetch from "node-fetch";
 import ytdl from "ytdl-core";
-import igdl from "instagram-url-direct";
-import TikTokScraper from "tiktok-scraper";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,7 +11,6 @@ app.get("/api/tiktok", async (req, res) => {
     const url = req.query.url;
     if (!url) return res.status(400).json({ error: "URL is required" });
 
-    // используем публичный API как прокси
     const apiUrl = `https://api.tiklydown.me/api/download?url=${encodeURIComponent(url)}`;
     const response = await fetch(apiUrl);
     const data = await response.json();
@@ -24,30 +21,25 @@ app.get("/api/tiktok", async (req, res) => {
       music: data.music
     });
   } catch (err) {
+    console.error("TikTok error:", err);
     return res.status(500).json({ error: err.message });
   }
 });
 
-// Instagram Reels (через RapidAPI-публичный эндпоинт)
+// Instagram
 app.get("/api/instagram", async (req, res) => {
   try {
     const url = req.query.url;
     if (!url) return res.status(400).json({ error: "URL is required" });
 
-    const apiUrl = `https://instagram-media-downloader.p.rapidapi.com/rapid/post.php?url=${encodeURIComponent(url)}`;
-    const response = await fetch(apiUrl, {
-      headers: {
-        "X-RapidAPI-Host": "instagram-media-downloader.p.rapidapi.com",
-        "X-RapidAPI-Key": "demo" // временно ставим тестовый ключ
-      }
-    });
-    const data = await response.json();
-
+    // Заглушка: пока возвращаем просто сам URL
     return res.json({
       status: "ok",
-      video: data.url
+      message: "Instagram downloader пока в разработке",
+      receivedUrl: url
     });
   } catch (err) {
+    console.error("Instagram error:", err);
     return res.status(500).json({ error: err.message });
   }
 });
@@ -69,12 +61,14 @@ app.get("/api/youtube", async (req, res) => {
       video: format.url
     });
   } catch (err) {
+    console.error("YouTube error:", err);
     return res.status(500).json({ error: err.message });
   }
 });
 
+// Проверочный маршрут
 app.get("/", (req, res) => {
-  res.send("Universal Video API is running!");
+  res.send("✅ Universal Video API is running!");
 });
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
