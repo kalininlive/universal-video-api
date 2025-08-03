@@ -5,21 +5,25 @@ import ytdl from "ytdl-core";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// TikTok
+// TikTok (через публичный no-watermark API)
 app.get("/api/tiktok", async (req, res) => {
   try {
     const url = req.query.url;
     if (!url) return res.status(400).json({ error: "URL is required" });
 
-    const apiUrl = `https://api.tiklydown.me/api/download?url=${encodeURIComponent(url)}`;
+    const apiUrl = `https://www.tikwm.com/api/?url=${encodeURIComponent(url)}`;
     const response = await fetch(apiUrl);
     const data = await response.json();
 
-    return res.json({
-      status: "ok",
-      video: data.video.noWatermark,
-      music: data.music
-    });
+    if (data.data && data.data.play) {
+      return res.json({
+        status: "ok",
+        video: data.data.play, // прямая ссылка на mp4
+        music: data.data.music
+      });
+    } else {
+      return res.status(500).json({ error: "Invalid response from TikTok API" });
+    }
   } catch (err) {
     console.error("TikTok error:", err);
     return res.status(500).json({ error: err.message });
