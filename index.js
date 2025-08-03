@@ -48,25 +48,38 @@ app.get("/api/instagram", async (req, res) => {
   }
 });
 
-// YouTube Shorts (через публичный API)
+import fs from "fs";
+import configData from "./config.json" assert { type: "json" };
+
+// YouTube Shorts через Invidious
 app.get("/api/youtube", async (req, res) => {
   try {
+    const instance = configData.invidious_instance;
     const url = req.query.url;
     if (!url) return res.status(400).json({ error: "URL is required" });
 
-    const apiUrl = `https://api.vevioz.com/api/button/mp3/${encodeURIComponent(url)}`;
-    const response = await fetch(apiUrl);
-    const html = await response.text();
+    const match = url.match(/(?:watch\?v=|\/shorts\/)([A-Za-z0-9_-]+)/);
+    if (!match) return res.status(400).json({ error: "Invalid YouTube link" });
 
-    // ищем ссылку на MP4 в html
-    const match = html.match(/href="([^"]+\.mp4[^"]*)"/);
-    if (!match) {
-      return res.status(410).json({ error: "Video not available" });
+    const videoId = match[1];
+    const apiUrl = `${instance}/api/v1/videos/${videoId}`;
+
+    const r = await fetch(apiUrl);
+    if (!r.ok) {
+      return res.status(r.status).json({ error: `Invidious status ${r.status}` });
     }
+
+    const { title, formatStreams } = await r.json();
+    const fmt = formatStreams.find(f => f.url && f.container === "mp4");
+
+    if (!fmt) return res.status(410).json({ error: "No format available" });
 
     return res.json({
       status: "ok",
-      video: match[1]
+      title,
+      video: fmt.url,
+      quality: fmt.qualityLabel || fmt.quality,
+      mime: fmt.container
     });
   } catch (err) {
     console.error("YouTube error:", err);
