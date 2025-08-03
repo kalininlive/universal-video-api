@@ -1,3 +1,8 @@
 {
-  "invidious_instance": "https://yewtu.be"
+  "invidious_instances": [
+    "https://yewtu.be",
+    "https://inv.nadeko.net",
+    "https://invidious.nerdvpn.de",
+    "https://invidious.f5.si"
+  ]
 }
