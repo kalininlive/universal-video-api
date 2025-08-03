@@ -1,0 +1,17 @@
+{
+  "name": "universal-video-api",
+  "version": "1.0.0",
+  "description": "Universal API for TikTok, Instagram Reels, YouTube Shorts video download",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "ytdl-core": "^4.11.5",
+    "node-fetch": "^3.3.2",
+    "instagram-url-direct": "^1.0.7",
+    "tiktok-scraper": "^1.4.36"
+  }
+}
