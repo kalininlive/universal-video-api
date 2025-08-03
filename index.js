@@ -48,7 +48,7 @@ app.get("/api/instagram", async (req, res) => {
   }
 });
 
-// YouTube Shorts
+// YouTube Shorts (устойчивый вариант)
 app.get("/api/youtube", async (req, res) => {
   try {
     const url = req.query.url;
@@ -58,10 +58,20 @@ app.get("/api/youtube", async (req, res) => {
       return res.status(400).json({ error: "Invalid YouTube URL" });
 
     const info = await ytdl.getInfo(url);
-    const format = ytdl.chooseFormat(info.formats, { quality: "highest" });
+
+    // фильтруем форматы с видео и аудио
+    const format = ytdl.chooseFormat(info.formats, {
+      quality: "highest",
+      filter: "audioandvideo"
+    });
+
+    if (!format || !format.url) {
+      return res.status(410).json({ error: "Video not available in desired format" });
+    }
 
     return res.json({
       status: "ok",
+      title: info.videoDetails.title,
       video: format.url
     });
   } catch (err) {
