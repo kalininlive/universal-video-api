@@ -51,10 +51,10 @@ app.get("/api/instagram", async (req, res) => {
 import fs from "fs";
 import configData from "./config.json" assert { type: "json" };
 
-// YouTube Shorts через Invidious
+// YouTube Shorts через Invidious с fallback по инстансам
 app.get("/api/youtube", async (req, res) => {
   try {
-    const instance = configData.invidious_instance;
+    const instances = configData.invidious_instances;
     const url = req.query.url;
     if (!url) return res.status(400).json({ error: "URL is required" });
 
@@ -62,24 +62,48 @@ app.get("/api/youtube", async (req, res) => {
     if (!match) return res.status(400).json({ error: "Invalid YouTube link" });
 
     const videoId = match[1];
-    const apiUrl = `${instance}/api/v1/videos/${videoId}`;
+    let lastError = null;
 
-    const r = await fetch(apiUrl);
-    if (!r.ok) {
-      return res.status(r.status).json({ error: `Invidious status ${r.status}` });
+    for (const instance of instances) {
+      try {
+        const apiUrl = `${instance}/api/v1/videos/${videoId}`;
+        const r = await fetch(apiUrl);
+        if (!r.ok) {
+          lastError = `Instance ${instance} returned status ${r.status}`;
+          continue; // пробуем следующий
+        }
+
+        const json = await r.json();
+        const { title, formatStreams } = json;
+        if (!formatStreams || !Array.isArray(formatStreams)) {
+          lastError = `No formatStreams from ${instance}`;
+          continue;
+        }
+
+        const fmt = formatStreams.find(f => f.url && f.container === "mp4");
+        if (!fmt) {
+          lastError = `No mp4 stream on ${instance}`;
+          continue;
+        }
+
+        // Успешно нашли
+        return res.json({
+          status: "ok",
+          title,
+          video: fmt.url,
+          quality: fmt.qualityLabel || fmt.quality || null,
+          mime: fmt.container
+        });
+      } catch (e) {
+        lastError = `Error on ${instance}: ${e.message}`;
+        // идём к следующему
+      }
     }
 
-    const { title, formatStreams } = await r.json();
-    const fmt = formatStreams.find(f => f.url && f.container === "mp4");
-
-    if (!fmt) return res.status(410).json({ error: "No format available" });
-
-    return res.json({
-      status: "ok",
-      title,
-      video: fmt.url,
-      quality: fmt.qualityLabel || fmt.quality,
-      mime: fmt.container
+    // Если дошли до конца и ничего не отработало
+    return res.status(410).json({
+      error: "No available format from any Invidious instance",
+      details: lastError
     });
   } catch (err) {
     console.error("YouTube error:", err);
