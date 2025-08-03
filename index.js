@@ -53,7 +53,7 @@ app.get("/api/youtube", async (req, res) => {
   if (!url) return res.status(400).json({ error: "URL is required" });
 
   try {
-    const proxyUrl = `${YTDLP_SERVICE_BASE}?url=${encodeURIComponent(url)}`;
+    const proxyUrl = `${process.env.YTDLP_SERVICE_URL || "http://90.156.253.98:5001/extract"}?url=${encodeURIComponent(url)}`;
     const r = await fetch(proxyUrl);
     const data = await r.json();
 
