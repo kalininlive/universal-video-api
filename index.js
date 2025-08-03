@@ -13,11 +13,15 @@ app.get("/api/tiktok", async (req, res) => {
     const url = req.query.url;
     if (!url) return res.status(400).json({ error: "URL is required" });
 
-    const videoMeta = await TikTokScraper.getVideoMeta(url);
+    // используем публичный API как прокси
+    const apiUrl = `https://api.tiklydown.me/api/download?url=${encodeURIComponent(url)}`;
+    const response = await fetch(apiUrl);
+    const data = await response.json();
+
     return res.json({
       status: "ok",
-      video: videoMeta.collector[0].videoUrl,
-      music: videoMeta.collector[0].musicMeta.musicUrl
+      video: data.video.noWatermark,
+      music: data.music
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
