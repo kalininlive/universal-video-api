@@ -1,12 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE!
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE
 );
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ status: 'error', message: 'Only POST allowed' });
   }
@@ -33,7 +32,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(403).json({ status: 'error', message: 'Кредиты исчерпаны' });
   }
 
-  // Пока возвращаем просто успешный ответ (временно)
   return res.status(200).json({
     status: 'ok',
     link,
