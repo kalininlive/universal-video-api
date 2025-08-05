@@ -1,7 +1,11 @@
 import express from "express";
 import fetch from "node-fetch";
+import extractHandler from "./api/extract.mjs";   // <-- импорт вверху
 
 const app = express();
+app.use(express.json());                          // разбираем JSON
+app.post("/api/extract", extractHandler);         // маршрут для extract
+
 const PORT = process.env.PORT || 3000;
 
 // Конфиг: куда проксировать yt-dlp (можно переопределить через ENV)
