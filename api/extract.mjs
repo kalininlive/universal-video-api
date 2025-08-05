@@ -23,6 +23,9 @@ export default async function handler(req, res) {
     .eq('api_key', api_key)
     .single();
 
+  console.log("Supabase fetch for api_key:", api_key);
+  console.log("↳ keyRow:", keyRow, " keyError:", keyError);
+
   if (keyError || !keyRow || !keyRow.is_active) {
     return res.status(403).json({ status: 'error', message: 'Ключ недействителен или отключён' });
   }
