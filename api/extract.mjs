@@ -18,7 +18,7 @@ export default async function handler(req, res) {
 
   // 1) Проверяем ключ в Supabase
   const { data: keyRow, error: keyError } = await supabase
-    .from('api_keys')
+    .from('dl_video_base.api_keys')
     .select('request_count, monthly_limit, is_active')
     .eq('api_key', api_key)
     .single();
@@ -60,7 +60,7 @@ export default async function handler(req, res) {
 
   // 5) Увеличиваем request_count на 1
   await supabase
-    .from('api_keys')
+    .from('dl_video_base.api_keys')
     .update({ request_count: keyRow.request_count + 1 })
     .eq('api_key', api_key);
 
