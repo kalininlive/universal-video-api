@@ -1,5 +1,4 @@
 // api/extract.mjs
-// П
 // Важно: на Vercel в Settings → Environment Variables должна быть переменная N8N_WEBHOOK_URL
 // Пример: https://n8n.kalininlive.ru/webhook/api/extract
 
